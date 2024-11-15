@@ -1,0 +1,23 @@
+name: color_blind_ai
+channels:
+  - defaults
+  - conda-forge
+  - pytorch
+  - nvidia
+dependencies:
+  - python=3.12
+  - pytorch-cuda=12.1
+  - pytorch
+  - torchaudio
+  - torchvision
+  - scikit-learn
+  - plotly
+  - matplotlib
+  - pandas
+  - scipy
+  - tqdm
+  - pip:
+    - seaborn
+    - opencv-python
+    - gdown
+prefix: /home/phil/anaconda3/envs/color_blind_ai
