@@ -11,7 +11,7 @@ from plot_utils import *
 def main():
     parser = ArgumentParser()
     parser.add_argument('-d', '--data_dir', default='./data/', help='/path/to/download/data/to/')
-    parser.add_argument('-bs', '--batch_size', type=int, default=32, help='batch size for training')
+    parser.add_argument('-bs', '--batch_size', type=int, default=128, help='batch size for training')
     parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3, help='learning rate for training')
     parser.add_argument('-ne', '--num_epochs', type=int, default=10, help='number of training epochs')
     parser.add_argument('-o', '--output_dir', default='./results/', help='/path/to/output/results/')

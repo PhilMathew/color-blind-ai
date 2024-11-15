@@ -10,6 +10,9 @@ from sklearn.metrics import roc_curve
 from models import RGB2GreyUNet, ColorblindEncoder
 
 
+NUM_CELEBA_CLASSES = 10178
+
+
 def train_model(
     train_ds: Dataset,
     val_ds: Dataset,
@@ -20,12 +23,12 @@ def train_model(
     device: torch.device, 
 ) -> Tuple[RGB2GreyUNet, Dict[str, List[float]]]:
     model = RGB2GreyUNet()
-    clf_layer = nn.Linear(1024, 10177) # 10177 classes in CelebA
+    clf_layer = nn.Linear(1024, NUM_CELEBA_CLASSES)
     model.to(device)
     clf_layer.to(device)
     
-    train_dl = DataLoader(train_ds, batch_size=batch_size)
-    val_dl = DataLoader(val_ds, batch_size=batch_size)
+    train_dl = DataLoader(train_ds, batch_size=batch_size, num_workers=16)
+    val_dl = DataLoader(val_ds, batch_size=batch_size, num_workers=16)
     
     reconstruction_loss_fn = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -37,8 +40,6 @@ def train_model(
         
         pbar = tqdm(train_dl, desc=f"Epoch {epoch + 1}")
         for i, batch in enumerate(pbar):
-            if i > 5:
-                break
             imgs, greys, id_label = batch
             imgs, greys, id_label = imgs.to(device), greys.to(device), id_label.to(device)
             
@@ -46,6 +47,9 @@ def train_model(
             
             outputs, emb = model(imgs)
             pred_ids = clf_layer(emb)
+            
+            if id_label.max().item() > NUM_CELEBA_CLASSES:
+                raise ValueError(f'CelebA has at least {id_label.max().item()} classes; consider increasing NUM_CELEBA_CLASSES')
             
             fr_loss = fr_loss_fn(pred_ids, id_label)
             reconstruction_loss = reconstruction_loss_fn(outputs, greys)
@@ -86,10 +90,11 @@ def train_model(
                 val_loss += loss.item()
                 val_acc += (pred_ids.argmax(dim=1) == id_label).sum().item()
                 
-                print(f'Val Loss: {val_loss / (i + 1):.4f}, Val Accuracy: {100 * (val_acc / (i + 1)):.4f}%')
+                
         
         val_loss /= len(val_dl)
         val_acc /= len(val_dl)
+        print(f'Val Loss: {val_loss:.4f}, Val Accuracy: {100 * val_acc:.4f}%')
         
         history['val_loss'].append(val_loss)
         history['val_acc'].append(val_acc)
@@ -104,7 +109,7 @@ def test_model(
     device: torch.device,
 ):
     model.eval()
-    test_dl = DataLoader(test_ds, batch_size=batch_size)
+    test_dl = DataLoader(test_ds, batch_size=batch_size, num_workers=16)
     
     with torch.no_grad():
         labels, preds = [], []
@@ -112,7 +117,8 @@ def test_model(
             img1, img2, label = batch
             img1, img2, label = img1.to(device), img2.to(device), label.to(device)
             
-            emb1, emb2 = model(emb1), model(emb2)
+            _, emb1 = model(img1)
+            _, emb2 = model(img2)
             
             # Calculate cosine similarity
             cos_sim = F.cosine_similarity(emb1, emb2, dim=1)
