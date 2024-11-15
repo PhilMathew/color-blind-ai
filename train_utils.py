@@ -81,14 +81,12 @@ def train_model(
                 outputs, emb = model(imgs)
                 pred_ids = clf_layer(emb)
                 
-                fr_loss = fr_loss_fn(pred_ids, id_label)
+                fr_loss = fr_loss_fn(emb, id_label, clf_layer.weight)
                 reconstruction_loss = reconstruction_loss_fn(outputs, greys)
                 loss = fr_loss + reconstruction_loss
                 
                 val_loss += loss.item()
                 val_acc += (pred_ids.argmax(dim=1) == id_label).float().mean().item()
-                
-                
         
         val_loss /= len(val_dl)
         val_acc /= len(val_dl)
