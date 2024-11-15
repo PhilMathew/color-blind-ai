@@ -16,14 +16,14 @@ NUM_CELEBA_CLASSES = 10178
 def train_model(
     train_ds: Dataset,
     val_ds: Dataset,
-    fr_loss_fn: Callable[[torch.Tensor, torch.Tensor], torch.Tensor], 
+    fr_loss_fn: Callable[[torch.Tensor, torch.Tensor, torch.Tensor], torch.Tensor], 
     learning_rate: float,
     epochs: int,
     batch_size: int,
     device: torch.device, 
 ) -> Tuple[RGB2GreyUNet, Dict[str, List[float]]]:
     model = RGB2GreyUNet()
-    clf_layer = nn.Linear(1024, NUM_CELEBA_CLASSES)
+    clf_layer = nn.Linear(1024, NUM_CELEBA_CLASSES, bias=False)
     model.to(device)
     clf_layer.to(device)
     
@@ -51,14 +51,14 @@ def train_model(
             if id_label.max().item() > NUM_CELEBA_CLASSES:
                 raise ValueError(f'CelebA has at least {id_label.max().item()} classes; consider increasing NUM_CELEBA_CLASSES')
             
-            fr_loss = fr_loss_fn(pred_ids, id_label)
+            fr_loss = fr_loss_fn(emb, id_label, clf_layer.weight)
             reconstruction_loss = reconstruction_loss_fn(outputs, greys)
             loss = fr_loss + reconstruction_loss
             loss.backward()
             optimizer.step()
             
             train_loss += loss.item()
-            train_acc += (pred_ids.argmax(dim=1) == id_label).sum().item()
+            train_acc += (pred_ids.argmax(dim=1) == id_label).float().mean().item()
             
             pbar.set_postfix_str(
                 f'Train Loss: {train_loss / (i + 1):.4f}, Train Accuracy: {100 * (train_acc / (i + 1)):.4f}%'
@@ -75,8 +75,6 @@ def train_model(
         model.eval()
         with torch.no_grad():
             for i, batch in enumerate(val_dl):
-                if i > 5:
-                    break
                 imgs, greys, id_label = batch
                 imgs, greys, id_label = imgs.to(device), greys.to(device), id_label.to(device)
                 
@@ -88,7 +86,7 @@ def train_model(
                 loss = fr_loss + reconstruction_loss
                 
                 val_loss += loss.item()
-                val_acc += (pred_ids.argmax(dim=1) == id_label).sum().item()
+                val_acc += (pred_ids.argmax(dim=1) == id_label).float().mean().item()
                 
                 
         

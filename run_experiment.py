@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from datasets import CelebADataset, LFWPairsDataset
-from losses import ArcFace
+from losses import CrossEntropyLoss, ArcFaceLoss
 from train_utils import train_model, test_model
 from plot_utils import *
 
@@ -28,9 +28,9 @@ def main():
     
     match args.loss_fn:
         case 'crossentropy':
-            fr_loss_fn = torch.nn.CrossEntropyLoss()
+            fr_loss_fn = CrossEntropyLoss()
         case 'arcface':
-            fr_loss_fn = ArcFace()
+            fr_loss_fn = ArcFaceLoss()
         case _:
             raise ValueError(f"Invalid loss function: {args.loss_fn}")
     
