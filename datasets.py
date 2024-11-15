@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 from torch import Tensor
 from torch.utils.data import Dataset
-from torchvision.datasets import CelebA
+from torchvision.datasets import CelebA, LFWPairs
 from torchvision import transforms
 
 
@@ -66,3 +66,29 @@ class CelebADataset(Dataset):
         grey_img = convert_to_greyscale(img)
         
         return img, grey_img, label
+
+
+class LFWPairsDataset(Dataset):
+    def __init__(self, data_path: str):
+        self.data_path = data_path
+        self.transform = transforms.Compose(
+            [
+                transforms.Resize((128, 128)),
+                transforms.ToTensor(), 
+                transforms.Normalize(IMAGENET_MEAN, IMAGENET_STD),
+            ]
+        )
+
+        self.dataset = LFWPairs(
+            data_path,
+            download=True,
+            transform=self.transform
+        )
+    
+    def __len__(self):
+        return len(self.dataset)
+    
+    def __getitem__(self, i):
+        img1, img2, label = self.dataset[i]
+        
+        return img1, img2, label

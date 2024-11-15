@@ -5,8 +5,9 @@ import numpy as np
 from torch.utils.data import Dataset, DataLoader
 from typing import *
 from tqdm import tqdm
+from sklearn.metrics import roc_curve
 
-from models import RGB2GreyUNet
+from models import RGB2GreyUNet, ColorblindEncoder
 
 
 def train_model(
@@ -36,6 +37,8 @@ def train_model(
         
         pbar = tqdm(train_dl, desc=f"Epoch {epoch + 1}")
         for i, batch in enumerate(pbar):
+            if i > 5:
+                break
             imgs, greys, id_label = batch
             imgs, greys, id_label = imgs.to(device), greys.to(device), id_label.to(device)
             
@@ -68,6 +71,8 @@ def train_model(
         model.eval()
         with torch.no_grad():
             for i, batch in enumerate(val_dl):
+                if i > 5:
+                    break
                 imgs, greys, id_label = batch
                 imgs, greys, id_label = imgs.to(device), greys.to(device), id_label.to(device)
                 
@@ -90,3 +95,32 @@ def train_model(
         history['val_acc'].append(val_acc)
     
     return model, history
+
+
+def test_model(
+    model: ColorblindEncoder,
+    test_ds: Dataset,
+    batch_size: int,
+    device: torch.device,
+):
+    model.eval()
+    test_dl = DataLoader(test_ds, batch_size=batch_size)
+    
+    with torch.no_grad():
+        labels, preds = [], []
+        for i, batch in enumerate(test_dl):
+            img1, img2, label = batch
+            img1, img2, label = img1.to(device), img2.to(device), label.to(device)
+            
+            emb1, emb2 = model(emb1), model(emb2)
+            
+            # Calculate cosine similarity
+            cos_sim = F.cosine_similarity(emb1, emb2, dim=1)
+            labels.extend(label.cpu().numpy())
+            preds.extend(cos_sim.cpu().numpy())
+        
+        labels, preds = np.array(labels), np.array(preds)
+        fpr, tpr, thresh = roc_curve(labels, preds)
+        auc = np.trapz(tpr, fpr)
+        
+    return fpr, tpr, thresh, auc

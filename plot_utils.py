@@ -1,17 +1,22 @@
+import os
 from typing import *
 import numpy as np
+from numpy.typing import ArrayLike
 from matplotlib import pyplot as plt
 import seaborn as sns
 
 
-def plot_history(train_hist: Dict[str, Sequence[float]], save_path='train_hist.png'):
+def plot_history(
+    train_hist: Dict[str, Sequence[float]], 
+    save_path: Optional[str | os.PathLike] = 'train_hist.png'
+) -> None:
     """
     Plots the training history of a model.
 
     :param train_hist: Dictionary of training history
     :type train_hist: Dict[str, Sequence[float]]
     :param save_path: Path to save the plot, defaults to 'train_hist.png'
-    :type save_path: str, optional
+    :type save_path: str or os.PathLike, optional
     """
     plot_val = 'val_loss' in train_hist.keys()
     
@@ -35,14 +40,19 @@ def plot_history(train_hist: Dict[str, Sequence[float]], save_path='train_hist.p
     fig.savefig(str(save_path))
 
 
-def plot_confmat(cm: Union[List, np.ndarray], save_path='confmat.png', title='', label_mapping: dict = None):
+def plot_confmat(
+    cm: Union[List, np.ndarray], 
+    save_path: Optional[str | os.PathLike] = 'confmat.png', 
+    title: Optional[str] = '', 
+    label_mapping: Optional[Dict[Any, Any]] = None
+) -> None:
     """
     Plots a given confusion matrix
 
     :param cm: Confusion matrix to plot
     :type cm: Union[List, np.ndarray]
     :param save_path: Path to save the plot, defaults to 'confmat.png'
-    :type save_path: str, optional
+    :type save_path: str or os.PathLike, optional
     :param title: Plot title, defaults to ''
     :type title: str, optional
     :param label_mapping: Dictionary mapping labels to their names, e.g. {0: 'cat', 1: 'dog'}, defaults to None
@@ -67,4 +77,31 @@ def plot_confmat(cm: Union[List, np.ndarray], save_path='confmat.png', title='',
         ax.set(xticklabels=ticks, yticklabels=ticks)
     
     # fig.tight_layout()
+    fig.savefig(str(save_path))
+
+
+def plot_roc_curve(
+    fpr: ArrayLike, 
+    tpr: ArrayLike, 
+    save_path: Optional[str | os.PathLike] = 'roc_curve.png'
+) -> None:
+    """
+    Plots a ROC curve
+
+    :param fpr: False positive rate
+    :type fpr: ArrayLike
+    :param tpr: True positive rate
+    :type tpr: ArrayLike
+    :param save_path: Path to save output plot, defaults to 'roc_curve.png'
+    :type save_path: str or os.PathLike, optional
+    """
+    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+   
+    ax.plot(fpr, tpr)
+    ax.plot([0, 1], [0, 1], color='black', linestyle='--')  # plot the baseline line
+    ax.set(
+        xlabel='False Positive Rate', 
+        ylabel='True Positive Rate', 
+        title=f'AUC = {np.trapz(tpr, fpr):.4f}'
+    )
     fig.savefig(str(save_path))
