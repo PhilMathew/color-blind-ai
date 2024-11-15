@@ -1,6 +1,5 @@
 import torch
-from torch import nn
-from torch.nn import functional
+from torch.nn import functional as F
 import numpy as np
 
 
@@ -31,4 +30,4 @@ class ArcFace(torch.nn.Module):
             logits.cos_()
         logits = logits * self.s   
         
-        return logits
+        return F.cross_entropy(logits)
