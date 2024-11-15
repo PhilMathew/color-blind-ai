@@ -30,4 +30,4 @@ class ArcFace(torch.nn.Module):
             logits.cos_()
         logits = logits * self.s   
         
-        return F.cross_entropy(logits)
+        return F.cross_entropy(logits, labels)
