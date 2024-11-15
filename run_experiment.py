@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 
 from datasets import CelebADataset, LFWPairsDataset
+from losses import ArcFace
 from train_utils import train_model, test_model
 from plot_utils import *
 
@@ -11,6 +12,7 @@ from plot_utils import *
 def main():
     parser = ArgumentParser()
     parser.add_argument('-d', '--data_dir', default='./data/', help='/path/to/download/data/to/')
+    parser.add_argument('-l', '--loss_fn', default='crossentropy', help='loss function to use in training')
     parser.add_argument('-bs', '--batch_size', type=int, default=128, help='batch size for training')
     parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3, help='learning rate for training')
     parser.add_argument('-ne', '--num_epochs', type=int, default=10, help='number of training epochs')
@@ -24,11 +26,19 @@ def main():
     train_ds, val_ds = CelebADataset(str(data_dir), split='train'), CelebADataset(str(data_dir), split='valid')
     test_ds = LFWPairsDataset(data_dir)
     
+    match args.loss_fn:
+        case 'crossentropy':
+            fr_loss_fn = torch.nn.CrossEntropyLoss()
+        case 'arcface':
+            fr_loss_fn = ArcFace()
+        case _:
+            raise ValueError(f"Invalid loss function: {args.loss_fn}")
+    
     model, history = train_model(
         train_ds=train_ds,
         val_ds=val_ds,
         epochs=args.num_epochs,
-        fr_loss_fn=torch.nn.CrossEntropyLoss(),
+        fr_loss_fn=fr_loss_fn,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
         device=device
