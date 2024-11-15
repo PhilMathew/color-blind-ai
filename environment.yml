@@ -1,9 +1,9 @@
 name: color_blind_ai
 channels:
-  - defaults
   - pytorch
   - nvidia
   - conda-forge
+  - defaults
 dependencies:
   - matplotlib
   - pandas
