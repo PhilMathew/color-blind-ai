@@ -99,7 +99,7 @@ def train_model(
 
 
 def test_model(
-    model: ColorblindEncoder,
+    model: nn.Module,
     test_ds: Dataset,
     batch_size: int,
     device: torch.device,
@@ -113,8 +113,13 @@ def test_model(
             img1, img2, label = batch
             img1, img2, label = img1.to(device), img2.to(device), label.to(device)
             
-            _, emb1 = model(img1)
-            _, emb2 = model(img2)
+            model_out1, model_out2 = model(img1), model(img2)
+            if len(model_out1) == 2:
+                _, emb1 = model(img1)
+                _, emb2 = model(img2)
+            else:
+                emb1 = model_out1
+                emb2 = model_out2
             
             # Calculate cosine similarity
             cos_sim = F.cosine_similarity(emb1, emb2, dim=1)

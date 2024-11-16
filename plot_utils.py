@@ -95,12 +95,13 @@ def plot_roc_curve(
     :param save_path: Path to save output plot, defaults to 'roc_curve.png'
     :type save_path: str or os.PathLike, optional
     """
-    fig, ax = plt.subplots(1, 1, figsize=(10, 10))
+    fig, ax = plt.subplots(1, 1)
    
     ax.plot(fpr, tpr)
     ax.plot([0, 1], [0, 1], color='black', linestyle='--')  # plot the baseline line
     ax.set(
-        xlabel='False Positive Rate', 
+        xlabel='False Positive Rate',
+        xscale='log', 
         ylabel='True Positive Rate', 
         title=f'AUC = {np.trapz(tpr, fpr):.4f}'
     )

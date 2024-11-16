@@ -5,6 +5,7 @@ from pathlib import Path
 
 from datasets import CelebADataset, LFWPairsDataset
 from losses import CrossEntropyLoss, ArcFaceLoss
+from models import RGB2GreyUNet
 from train_utils import train_model, test_model
 from plot_utils import *
 
@@ -17,6 +18,7 @@ def main():
     parser.add_argument('-lr', '--learning_rate', type=float, default=1e-3, help='learning rate for training')
     parser.add_argument('-ne', '--num_epochs', type=int, default=10, help='number of training epochs')
     parser.add_argument('-o', '--output_dir', default='./results/', help='/path/to/output/results/')
+    parser.add_argument('--eval_only', default=False, action='store_true', help='Runs script without training a model')
     args = parser.parse_args()
     
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -34,15 +36,25 @@ def main():
         case _:
             raise ValueError(f"Invalid loss function: {args.loss_fn}")
     
-    model, history = train_model(
-        train_ds=train_ds,
-        val_ds=val_ds,
-        epochs=args.num_epochs,
-        fr_loss_fn=fr_loss_fn,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        device=device
-    )
+    if args.eval_only:
+        weights_file = output_dir / 'model.pth'
+        history_file = output_dir / 'history.json'
+        model = RGB2GreyUNet()
+        with open(str(weights_file), 'rb') as f:
+            model.load_state_dict(torch.load(f, weights_only=True))
+        with open(str(history_file), 'r') as f:
+            history = json.load(f)
+        model = model.to(device)
+    else:
+        model, history = train_model(
+            train_ds=train_ds,
+            val_ds=val_ds,
+            epochs=args.num_epochs,
+            fr_loss_fn=fr_loss_fn,
+            batch_size=args.batch_size,
+            learning_rate=args.learning_rate,
+            device=device
+        )
     fpr, tpr, thresh, auc = test_model(
         model=model.encoder,
         test_ds=test_ds,
@@ -67,9 +79,9 @@ def main():
     with open(str(output_dir / 'test_metrics.json'), 'w') as f:
         json.dump(
             {
-                'fpr': fpr,
-                'tpr': tpr,
-                'thresh': thresh,
+                'fpr': fpr.tolist(),
+                'tpr': tpr.tolist(),
+                'thresh': thresh.tolist(),
                 'auc': auc
             }, 
             f, 
