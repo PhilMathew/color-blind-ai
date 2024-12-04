@@ -6,6 +6,8 @@ from torch.utils.data import Dataset, DataLoader
 from typing import *
 from tqdm import tqdm
 from sklearn.metrics import roc_curve
+from collections import defaultdict
+
 
 from models import RGB2GreyUNet, ColorblindEncoder
 
@@ -131,3 +133,122 @@ def test_model(
         auc = np.trapz(tpr, fpr)
         
     return fpr, tpr, thresh, auc
+
+def test_model_group_based(
+    model: nn.Module,
+    test_ds: Dataset,
+    batch_size: int,
+    device: torch.device,
+):
+
+    model.eval()
+    fmr = {}
+    fnmr = {}
+
+    with torch.no_grad():
+        # Iterate through all demographic groups
+        for group_name in test_ds.grouped_data.keys():
+            group_data = test_ds.grouped_data[group_name]
+            labels, preds = [], []
+
+            for i in range(0, len(group_data), batch_size):
+                batch = group_data[i:i + batch_size]
+                img1_paths = [item[0] for item in batch]
+                img2_paths = [item[1] for item in batch]
+                batch_labels = [item[2] for item in batch]
+
+                img1 = torch.stack([test_ds._load_image(test_ds._construct_image_path(path)) for path in img1_paths])
+                img2 = torch.stack([test_ds._load_image(test_ds._construct_image_path(path)) for path in img2_paths])
+                img1, img2 = img1.to(device), img2.to(device)
+                batch_labels = torch.tensor(batch_labels).to(device)
+
+                emb1 = model(img1)
+                emb2 = model(img2)
+
+                # Calculate cosine similarity
+                cos_sim = F.cosine_similarity(emb1, emb2, dim=1)
+                labels.extend(batch_labels.cpu().numpy())
+                preds.extend(cos_sim.cpu().numpy())
+
+            labels = np.array(labels)
+            preds = np.array(preds)
+
+            fmr[group_name] = []
+            fnmr[group_name] = []
+
+            # Calculate FMR and FNMR for thresholds from 0.0 to 1.0 
+            thresholds = np.linspace(0, 1, 1001)
+            for t in thresholds:
+                is_match = preds >= t
+                false_matches = (labels == 0) & (is_match)  
+                false_non_matches = (labels == 1) & (~is_match)  
+
+                num_non_matches = np.sum(labels == 0)
+                num_matches = np.sum(labels == 1)
+
+                FMR = np.sum(false_matches) / num_non_matches if num_non_matches > 0 else float('nan')
+                FNMR = np.sum(false_non_matches) / num_matches if num_matches > 0 else float('nan')
+
+                fmr[group_name].append(FMR)
+                fnmr[group_name].append(FNMR)
+
+    return {"FMR": fmr, "FNMR": fnmr}
+
+def test_arcface_model_group_based(
+    model: torch.nn.Module,
+    test_ds,
+    batch_size: int,
+    device: torch.device
+):
+    model.eval()
+    results = {}
+
+    with torch.no_grad():
+        for group_name in test_ds.grouped_data.keys():
+            group_data = test_ds.grouped_data[group_name]  
+            labels, preds = [], []
+
+            for i in range(0, len(group_data), batch_size):
+                batch = group_data[i:i + batch_size]
+
+                img1_paths = [item[0] for item in batch]
+                img2_paths = [item[1] for item in batch]
+                batch_labels = [item[2] for item in batch]
+
+                img1 = torch.stack([test_ds._load_image(test_ds._construct_image_path(path)) for path in img1_paths])
+                img2 = torch.stack([test_ds._load_image(test_ds._construct_image_path(path)) for path in img2_paths])
+                img1, img2 = img1.to(device), img2.to(device)
+                batch_labels = torch.tensor(batch_labels).to(device)
+
+                _, emb1 = model(img1)  
+                _, emb2 = model(img2)
+
+                emb1 = F.normalize(emb1, p=2, dim=1)
+                emb2 = F.normalize(emb2, p=2, dim=1)
+
+                cos_sim = F.cosine_similarity(emb1, emb2, dim=1)
+                labels.extend(batch_labels.cpu().numpy())
+                preds.extend(cos_sim.cpu().numpy())
+
+            labels = np.array(labels)
+            preds = np.array(preds)
+
+            fmr[group_name] = []
+            fnmr[group_name] = []
+
+            thresholds = np.linspace(0, 1, 1001)
+            for t in thresholds:
+                is_match = preds >= t
+                false_matches = (labels == 0) & (is_match)  
+                false_non_matches = (labels == 1) & (~is_match)  
+                
+                num_non_matches = np.sum(labels == 0)
+                num_matches = np.sum(labels == 1)
+
+                FMR = np.sum(false_matches) / num_non_matches if num_non_matches > 0 else float('nan')
+                FNMR = np.sum(false_non_matches) / num_matches if num_matches > 0 else float('nan')
+
+                fmr[group_name].append(FMR)
+                fnmr[group_name].append(FNMR)
+
+    return {"FMR": fmr, "FNMR": fnmr}
